@@ -1,5 +1,6 @@
 import 'dart:io';
 
+import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:get/get.dart';
@@ -9,6 +10,7 @@ import 'controller/user_controller.dart';
 
 class ImageUploading extends StatefulWidget {
   ImageUploading({Key? key}) : super(key: key);
+
 
   @override
   State<ImageUploading> createState() => _ImageUploadingState();
@@ -40,26 +42,29 @@ class _ImageUploadingState extends State<ImageUploading> {
     Reference storageRef = storage.ref().child('profile_pics/${_image!.name}');
     UploadTask uploadTask = storageRef.putFile(File(_image!.path!));
 
+    // Listen to the upload task state changes
     uploadTask.snapshotEvents.listen((TaskSnapshot snapshot) {
       print('Upload progress: ${(snapshot.bytesTransferred / snapshot.totalBytes) * 100} %');
     });
 
+    // Wait for the upload task to complete
     TaskSnapshot taskSnapshot = await uploadTask;
+
+    // Get the download URL of the uploaded file
     String downloadURL = await taskSnapshot.ref.getDownloadURL();
 
-    // Now you have the download URL, save it to your user's profile
-    userProfileController.myUserModel.profilePic = downloadURL;
+    // Update Firestore document with download URL
+    await FirebaseFirestore.instance.collection('users').doc('your_user_id').update({
+      'profilePic': downloadURL,
+    });
 
-    // Update other profile details if needed
-    userProfileController.updateProfile(); // Update profile in your controller
-
-    // Optionally, you can show a success message or perform other UI updates
+    // Show upload success message
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(content: Text('Image uploaded successfully')),
     );
   } catch (e) {
     print('Error uploading photo: $e');
-    // Handle errors, show error message etc.
+    // Show upload failure message
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(content: Text('Failed to upload image')),
     );
